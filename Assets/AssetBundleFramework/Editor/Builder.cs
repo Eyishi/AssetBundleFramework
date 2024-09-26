@@ -37,6 +37,11 @@ public class Builder : MonoBehaviour
     /// </summary>
     public static BuildSetting buildSetting { get; private set; }
     
+    /// <summary>
+    /// 打包目录
+    /// </summary>
+    public static string buildPath { get; set; }
+    
     #region Build MenuItem
 
     [MenuItem("Tools/ResBuild/Windows")]
@@ -95,6 +100,7 @@ public class Builder : MonoBehaviour
         }
         (buildSetting as ISupportInitialize)?.EndInit();
 
+        //打包的根目录
         buildPath = Path.GetFullPath(buildSetting.buildRoot).Replace("\\", "/");
         if (buildPath.Length > 0 && buildPath[buildPath.Length - 1] != '/')
         {
