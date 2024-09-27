@@ -36,7 +36,30 @@ namespace AssetBundleFramework.Editor
             //针对不同的  builditem 打包选项 不同的处理
             for (int i = 0; i < items.Count; i++)
             {
-                
+                BuildItem buildItem = items[i];
+
+                if (buildItem.bundleType == EBundleType.All || buildItem.bundleType == EBundleType.Directory)
+                {
+                    if (!Directory.Exists(buildItem.assetPath))
+                    {
+                        throw new Exception($"不存在资源路径:{buildItem.assetPath}");
+                    }
+                }
+
+                //处理后缀
+                string[] prefixes = buildItem.suffix.Split('|');
+                for (int ii = 0; ii < prefixes.Length; ii++)
+                {
+                    string prefix = prefixes[ii].Trim();
+                    if (!string.IsNullOrEmpty(prefix))
+                        buildItem.suffixes.Add(prefix);
+                }
+
+                if (itemDic.ContainsKey(buildItem.assetPath))
+                {
+                    throw new Exception($"重复的资源路径:{buildItem.assetPath}");
+                }
+                itemDic.Add(buildItem.assetPath, buildItem);
             }
         }
     }
