@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Net.Mime;
 using System.Text;
+using System.Threading.Tasks;
 using AssetBundleFramework.Core;
 using AssetBundleFramework.Editor;
 using UnityEditor;
@@ -19,7 +20,12 @@ public class Builder : MonoBehaviour
     private static readonly Vector2 ms_GetDependencyProgress = new Vector2(0.2f, 0.4f);
     private static readonly Vector2 ms_CollectBundleInfoProgress = new Vector2(0.4f, 0.5f);
     private static readonly Vector2 ms_GenerateBuildInfoProgress = new Vector2(0.5f, 0.6f);
+    private static readonly Vector2 ms_BuildBundleProgress = new Vector2(0.6f, 0.7f);
+    private static readonly Vector2 ms_ClearBundleProgress = new Vector2(0.7f, 0.9f);
     
+    /// <summary>
+    /// 构建分析
+    /// </summary>
     private static readonly Profiler ms_BuildProfiler = new Profiler(nameof(Builder));
     /// <summary>
     /// 配置
@@ -37,7 +43,21 @@ public class Builder : MonoBehaviour
     private static readonly Profiler ms_CollectBuildSettingFileProfiler = ms_CollectProfiler.CreateChild("CollectBuildSettingFile");
     private static readonly Profiler ms_CollectDependencyProfiler = ms_CollectProfiler.CreateChild(nameof(CollectDependency));
     private static readonly Profiler ms_CollectBundleProfiler = ms_CollectProfiler.CreateChild(nameof(CollectBundle));
+    
+    /// <summary>
+    /// 生成 manifest 文件
+    /// </summary>
     private static readonly Profiler ms_GenerateManifestProfiler = ms_CollectProfiler.CreateChild(nameof(GenerateManifest));
+    
+    /// <summary>
+    /// 打包  assetbundle
+    /// </summary>
+    private static readonly Profiler ms_BuildBundleProfiler = ms_BuildProfiler.CreateChild(nameof(BuildBundle));
+    
+    /// <summary>
+    /// 清理多余文件
+    /// </summary>
+    private static readonly Profiler ms_ClearBundleProfiler = ms_BuildProfiler.CreateChild(nameof(ClearAssetBundle));
 #if UNITY_IOS
         private const string PLATFORM = "iOS";
 #elif UNITY_ANDROID
@@ -45,7 +65,26 @@ public class Builder : MonoBehaviour
 #else
     private const string PLATFORM = "Windows";
 #endif
+    //bundle后缀
+    public const string BUNDLE_SUFFIX = ".ab";
+    public const string BUNDLE_MANIFEST_SUFFIX = ".manifest";
     
+    //bundle描述文件名称
+    public const string MANIFEST = "manifest";
+
+    public static readonly ParallelOptions ParallelOptions = new ParallelOptions()
+    {
+        MaxDegreeOfParallelism = Environment.ProcessorCount * 2
+    };
+    
+    //bundle打包Options
+    public readonly static BuildAssetBundleOptions BuildAssetBundleOptions = 
+        BuildAssetBundleOptions.ChunkBasedCompression | 
+        BuildAssetBundleOptions.DeterministicAssetBundle | 
+        BuildAssetBundleOptions.StrictMode | 
+        BuildAssetBundleOptions.DisableLoadAssetByFileName | 
+        BuildAssetBundleOptions.DisableLoadAssetByFileNameWithExtension;
+
     /// <summary>
     /// 打包设置
     /// </summary>
@@ -192,8 +231,16 @@ public class Builder : MonoBehaviour
         Dictionary<string, List<string>> bundleDic = Collect();
         ms_CollectProfiler.Stop();
         
-        
+        //打包assetbundle
+        ms_BuildBundleProfiler.Start();
+        BuildBundle(bundleDic);
+        ms_BuildBundleProfiler.Stop();
 
+        //清空多余文件
+        ms_ClearBundleProfiler.Start();
+        ClearAssetBundle(buildPath, bundleDic);
+        ms_ClearBundleProfiler.Stop();
+        
         ms_BuildProfiler.Stop();
 
         Debug.Log($"打包完成{ms_BuildProfiler} ");
@@ -242,6 +289,7 @@ public class Builder : MonoBehaviour
         ms_GenerateManifestProfiler.Start();
         GenerateManifest(assetDic, bundleDic, dependencyDic);
         ms_GenerateManifestProfiler.Stop();
+        
 
         return bundleDic;
     }
@@ -552,6 +600,80 @@ public class Builder : MonoBehaviour
 
             EditorUtility.ClearProgressBar();
         }
+        /// <summary>
+        /// 打包AssetBundle
+        /// <param name="assetDic">资源列表</param>
+        /// <param name="bundleDic">bundle包信息</param>
+        /// <param name="dependencyDic">资源依赖信息</param>
+        /// </summary>
+        private static AssetBundleManifest BuildBundle(Dictionary<string, List<string>> bundleDic)
+        {
+            float min = ms_BuildBundleProgress.x;
+            float max = ms_BuildBundleProgress.y;
+
+            EditorUtility.DisplayProgressBar($"{nameof(BuildBundle)}", "打包AssetBundle", min);
+
+            if (!Directory.Exists(buildPath))
+                Directory.CreateDirectory(buildPath);
+
+            AssetBundleManifest manifest = BuildPipeline.BuildAssetBundles(buildPath, GetBuilds(bundleDic), 
+                BuildAssetBundleOptions, EditorUserBuildSettings.activeBuildTarget);
+
+            EditorUtility.DisplayProgressBar($"{nameof(BuildBundle)}", "打包AssetBundle", max);
+
+            return manifest;
+        }
+        /// <summary>
+        /// 获取所有需要打包的AssetBundleBuild
+        /// </summary>
+        /// <param name="bundleTable">bunlde信息</param>
+        /// <returns></returns>
+        private static AssetBundleBuild[] GetBuilds(Dictionary<string, List<string>> bundleTable)
+        {
+            int index = 0;
+            AssetBundleBuild[] assetBundleBuilds = new AssetBundleBuild[bundleTable.Count];
+            foreach (KeyValuePair<string, List<string>> pair in bundleTable)
+            {
+                assetBundleBuilds[index++] = new AssetBundleBuild()
+                {
+                    assetBundleName = pair.Key,
+                    assetNames = pair.Value.ToArray(),
+                };
+            }
+
+            return assetBundleBuilds;
+        }
+        
+        /// <summary>
+        /// 清空多余的assetbundle
+        /// </summary>
+        /// <param name="path">打包路径</param>
+        /// <param name="bundleDic"></param>
+        private static void ClearAssetBundle(string path, Dictionary<string, List<string>> bundleDic)
+        {
+            float min = ms_ClearBundleProgress.x;
+            float max = ms_ClearBundleProgress.y;
+
+            EditorUtility.DisplayProgressBar($"{nameof(ClearAssetBundle)}", "清除多余的AssetBundle文件", min);
+
+            List<string> fileList = GetFiles(path, null, null);
+            HashSet<string> fileSet = new HashSet<string>(fileList);
+
+            foreach (string bundle in bundleDic.Keys)
+            {
+                fileSet.Remove($"{path}{bundle}");
+                fileSet.Remove($"{path}{bundle}{BUNDLE_MANIFEST_SUFFIX}");
+            }
+
+            fileSet.Remove($"{path}{PLATFORM}");
+            fileSet.Remove($"{path}{PLATFORM}{BUNDLE_MANIFEST_SUFFIX}");
+
+            //并行删除文件
+            Parallel.ForEach(fileSet, ParallelOptions, File.Delete);
+
+            EditorUtility.DisplayProgressBar($"{nameof(ClearAssetBundle)}", "清除多余的AssetBundle文件", max);
+        }
+        
         /// <summary>
         /// 获取指定路径的文件
         /// </summary>
