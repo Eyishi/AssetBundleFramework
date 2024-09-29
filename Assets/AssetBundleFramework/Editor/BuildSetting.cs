@@ -97,6 +97,7 @@ namespace AssetBundleFramework.Editor
                     //两个资源不同  并且是打包资源
                     if (i != j && buildItem_j.resourceType == EResourceType.Direct)
                     {
+                        // 是否以 指定路径前缀 开头
                         if (buildItem_j.assetPath.StartsWith(buildItem_i.assetPath, StringComparison.InvariantCulture))
                         {
                             buildItem_i.ignorePaths.Add(buildItem_j.assetPath);
@@ -117,7 +118,8 @@ namespace AssetBundleFramework.Editor
                 if (buildItem.resourceType != EResourceType.Direct)
                     continue;
 
-                List<string> tempFiles = Builder.GetFiles(buildItem.assetPath, null, buildItem.suffixes.ToArray());
+                List<string> tempFiles = Builder.GetFiles(buildItem.assetPath, 
+                    null, buildItem.suffixes.ToArray());
                 for (int j = 0; j < tempFiles.Count; j++)
                 {
                     string file = tempFiles[j];
@@ -133,6 +135,25 @@ namespace AssetBundleFramework.Editor
             }
 
             return files;
+        }
+        /// <summary>
+        /// 文件是否在忽略列表
+        /// </summary>
+        /// <param name="ignoreList">忽略路径列表</param>
+        /// <param name="file">文件路径</param>
+        /// <returns></returns>
+        public bool IsIgnore(List<string> ignoreList, string file)
+        {
+            for (int i = 0; i < ignoreList.Count; i++)
+            {
+                string ignorePath = ignoreList[i];
+                if (string.IsNullOrEmpty(ignorePath))
+                    continue;
+                if (file.StartsWith(ignorePath, StringComparison.InvariantCulture))
+                    return true;
+            }
+
+            return false;
         }
     }
 }

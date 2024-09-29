@@ -15,7 +15,7 @@ using UnityEngine;
 public class Builder : MonoBehaviour
 {
     public static readonly Vector2 collectRuleFileProgress = new Vector2(0, 0.2f);
-    
+    private static readonly Vector2 ms_GetDependencyProgress = new Vector2(0.2f, 0.4f);
     
     
     private static readonly Profiler ms_BuildProfiler = new Profiler(nameof(Builder));
@@ -33,8 +33,8 @@ public class Builder : MonoBehaviour
     /// </summary>
     private static readonly Profiler ms_CollectProfiler = ms_BuildProfiler.CreateChild(nameof(Collect));
     private static readonly Profiler ms_CollectBuildSettingFileProfiler = ms_CollectProfiler.CreateChild("CollectBuildSettingFile");
-    //private static readonly Profiler ms_CollectDependencyProfiler = ms_CollectProfiler.CreateChild(nameof(CollectDependency));
-    //private static readonly Profiler ms_CollectBundleProfiler = ms_CollectProfiler.CreateChild(nameof(CollectBundle));
+    private static readonly Profiler ms_CollectDependencyProfiler = ms_CollectProfiler.CreateChild(nameof(CollectDependency));
+    private static readonly Profiler ms_CollectBundleProfiler = ms_CollectProfiler.CreateChild(nameof(CollectBundle));
 #if UNITY_IOS
         private const string PLATFORM = "iOS";
 #elif UNITY_ANDROID
@@ -136,52 +136,6 @@ public class Builder : MonoBehaviour
         return buildSetting;
     }
     
-    /// <summary>
-    /// 搜集打包bundle的信息
-    /// </summary>
-    /// <returns></returns>
-    private static Dictionary<string, List<string>> Collect()
-    {
-        //获取所有在打包设置的文件列表
-        ms_CollectBuildSettingFileProfiler.Start();
-        HashSet<string> files = buildSetting.Collect();
-        ms_CollectBuildSettingFileProfiler.Stop();
-
-        //搜集所有文件的依赖关系
-        ms_CollectDependencyProfiler.Start();
-        Dictionary<string, List<string>> dependencyDic = CollectDependency(files);
-        ms_CollectDependencyProfiler.Stop();
-
-        //标记所有资源的信息
-        Dictionary<string, EResourceType> assetDic = new Dictionary<string, EResourceType>();
-
-        //被打包配置分析到的直接设置为Direct
-        foreach (string url in files)
-        {
-            assetDic.Add(url, EResourceType.Direct);
-        }
-
-        //依赖的资源标记为Dependency，已经存在的说明是Direct的资源
-        foreach (string url in dependencyDic.Keys)
-        {
-            if (!assetDic.ContainsKey(url))
-            {
-                assetDic.Add(url, EResourceType.Dependency);
-            }
-        }
-
-        //该字典保存bundle对应的资源集合
-        ms_CollectBundleProfiler.Start();
-        Dictionary<string, List<string>> bundleDic = CollectBundle(buildSetting, assetDic, dependencyDic);
-        ms_CollectBundleProfiler.Stop();
-
-        //生成Manifest文件
-        ms_GenerateManifestProfiler.Start();
-        GenerateManifest(assetDic, bundleDic, dependencyDic);
-        ms_GenerateManifestProfiler.Stop();
-
-        return bundleDic;
-    }
     private static void Build()
     {
         ms_BuildProfiler.Start();
@@ -199,29 +153,126 @@ public class Builder : MonoBehaviour
         Dictionary<string, List<string>> bundleDic = Collect();
         ms_CollectProfiler.Stop();
         
-        // //打包assetbundle
-        // ms_BuildBundleProfiler.Start();
-        // BuildBundle(bundleDic);
-        // ms_BuildBundleProfiler.Stop();
-        //
-        // //清空多余文件
-        // ms_ClearBundleProfiler.Start();
-        // ClearAssetBundle(buildPath, bundleDic);
-        // ms_ClearBundleProfiler.Stop();
-        //
-        // //把描述文件打包bundle
-        // ms_BuildManifestBundleProfiler.Start();
-        // BuildManifest();
-        // ms_BuildManifestBundleProfiler.Stop();
-        //
-        // EditorUtility.ClearProgressBar();
+        
 
         ms_BuildProfiler.Stop();
 
         Debug.Log($"打包完成{ms_BuildProfiler} ");
     }
     
+    /// <summary>
+    /// 搜集打包bundle的信息
+    /// </summary>
+    /// <returns></returns>
+    private static Dictionary<string, List<string>> Collect()
+    {
+        //获取所有在打包设置的文件列表
+        ms_CollectBuildSettingFileProfiler.Start();
+        HashSet<string> files = buildSetting.Collect();
+        ms_CollectBuildSettingFileProfiler.Stop();
+
+        //搜集所有文件的依赖关系
+        ms_CollectDependencyProfiler.Start();
+        Dictionary<string, List<string>> dependencyDic = CollectDependency(files);
+        ms_CollectDependencyProfiler.Stop();
+    }
     
+    /// <summary>
+    /// 收集指定文件集合所有的依赖信息
+    /// </summary>
+    /// <param name="files">文件集合</param>
+    /// <returns>依赖信息</returns>
+    private static Dictionary<string, List<string>> CollectDependency(ICollection<string> files)
+    {
+        float min = ms_GetDependencyProgress.x;
+        float max = ms_GetDependencyProgress.y;
+
+        Dictionary<string, List<string>> dependencyDic = new Dictionary<string, List<string>>();
+
+        //声明fileList后，就不需要递归了
+        List<string> fileList = new List<string>(files);
+
+        for (int i = 0; i < fileList.Count; i++)
+        {
+            string assetUrl = fileList[i];
+
+            if (dependencyDic.ContainsKey(assetUrl))
+                continue;
+
+            if (i % 10 == 0)
+            {
+                //只能大概模拟进度
+                float progress = min + (max - min) * ((float)i / (files.Count * 3));
+                EditorUtility.DisplayProgressBar($"{nameof(CollectDependency)}", "搜集依赖信息", progress);
+            }
+
+            string[] dependencies = AssetDatabase.GetDependencies(assetUrl, false);
+            List<string> dependencyList = new List<string>(dependencies.Length);
+
+            //过滤掉不符合要求的asset
+            for (int ii = 0; ii < dependencies.Length; ii++)
+            {
+                string tempAssetUrl = dependencies[ii];
+                string extension = Path.GetExtension(tempAssetUrl).ToLower();
+                if (string.IsNullOrEmpty(extension) || extension == ".cs" || extension == ".dll")
+                    continue;
+                dependencyList.Add(tempAssetUrl);
+                if (!fileList.Contains(tempAssetUrl))
+                    fileList.Add(tempAssetUrl);
+            }
+
+            dependencyDic.Add(assetUrl, dependencyList);
+        }
+
+        return dependencyDic;
+    }
+    
+    /// <summary>
+    /// 获取指定路径的文件
+    /// </summary>
+    /// <param name="path">指定路径</param>
+    /// <param name="prefix">前缀</param>
+    /// <param name="suffixes">后缀集合</param>
+    /// <returns>文件列表</returns>
+    public static List<string> GetFiles(string path, string prefix, params string[] suffixes)
+    {
+        //获取指定路径下的文件
+        string[] files = Directory.GetFiles(path, $"*.*", SearchOption.AllDirectories);
+        List<string> result = new List<string>(files.Length);
+        
+        for (int i = 0; i < files.Length; ++i)
+        {
+            string file = files[i].Replace('\\', '/');
+            
+            //处理前缀
+            if (prefix != null && !file.StartsWith(prefix, StringComparison.InvariantCulture))
+            {
+                continue;
+            }
+            //是否有其中一个后缀
+            if (suffixes != null && suffixes.Length > 0)
+            {
+                bool exist = false;
+
+                for (int ii = 0; ii < suffixes.Length; ii++)
+                {
+                    string suffix = suffixes[ii];
+                    if (file.EndsWith(suffix, StringComparison.InvariantCulture))
+                    {
+                        exist = true;
+                        break;
+                    }
+                }
+
+                if (!exist)
+                    continue;
+            }
+
+            result.Add(file);
+        }
+        return result;
+        
+    }
     
     
 }
