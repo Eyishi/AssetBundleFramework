@@ -16,6 +16,7 @@ public class Builder : MonoBehaviour
 {
     public static readonly Vector2 collectRuleFileProgress = new Vector2(0, 0.2f);
     private static readonly Vector2 ms_GetDependencyProgress = new Vector2(0.2f, 0.4f);
+    private static readonly Vector2 ms_CollectBundleInfoProgress = new Vector2(0.4f, 0.5f);
     
     
     private static readonly Profiler ms_BuildProfiler = new Profiler(nameof(Builder));
@@ -175,6 +176,31 @@ public class Builder : MonoBehaviour
         ms_CollectDependencyProfiler.Start();
         Dictionary<string, List<string>> dependencyDic = CollectDependency(files);
         ms_CollectDependencyProfiler.Stop();
+        
+        //标记所有资源的信息
+        Dictionary<string, EResourceType> assetDic = new Dictionary<string, EResourceType>();
+        
+        //被打包配置分析到的直接设置为Direct
+        foreach (string url in files)
+        {
+            assetDic.Add(url, EResourceType.Direct);
+        }
+        
+        //依赖的资源标记为Dependency，已经存在的说明是Direct的资源
+        foreach (string url in dependencyDic.Keys)
+        {
+            if (!assetDic.ContainsKey(url))
+            {
+                assetDic.Add(url, EResourceType.Dependency);
+            }
+        }
+        
+        //该字典保存bundle对应的资源集合
+        ms_CollectBundleProfiler.Start();
+        Dictionary<string, List<string>> bundleDic = CollectBundle(buildSetting, assetDic, dependencyDic);
+        ms_CollectBundleProfiler.Stop();
+        
+        
     }
     
     /// <summary>
@@ -226,7 +252,71 @@ public class Builder : MonoBehaviour
 
         return dependencyDic;
     }
-    
+        /// <summary>
+        /// 搜集bundle对应的ab名字
+        /// </summary>
+        /// <param name="buildSetting"></param>
+        /// <param name="assetDic">资源列表</param>
+        /// <param name="dependencyDic">资源依赖信息</param>
+        /// <returns>bundle包信息</returns>
+        private static Dictionary<string, List<string>> CollectBundle(BuildSetting buildSetting, 
+            Dictionary<string, EResourceType> assetDic, Dictionary<string, List<string>> dependencyDic)
+        {
+            float min = ms_CollectBundleInfoProgress.x;
+            float max = ms_CollectBundleInfoProgress.y;
+
+            EditorUtility.DisplayProgressBar($"{nameof(CollectBundle)}", "搜集bundle信息", min);
+
+            Dictionary<string, List<string>> bundleDic = new Dictionary<string, List<string>>();
+            //外部资源
+            List<string> notInRuleList = new List<string>();
+
+            int index = 0;
+            foreach (KeyValuePair<string, EResourceType> pair in assetDic)
+            {
+                index++;
+                string assetUrl = pair.Key;
+                string bundleName = buildSetting.GetBundleName(assetUrl, pair.Value);
+
+                //没有bundleName的资源为外部资源
+                if (bundleName == null)
+                {
+                    notInRuleList.Add(assetUrl);
+                    continue;
+                }
+
+                List<string> list;
+                if (!bundleDic.TryGetValue(bundleName, out list))
+                {
+                    list = new List<string>();
+                    bundleDic.Add(bundleName, list);
+                }
+
+                list.Add(assetUrl);
+
+                EditorUtility.DisplayProgressBar($"{nameof(CollectBundle)}", "搜集bundle信息", min + (max - min) * ((float)index / assetDic.Count));
+            }
+
+            //todo...  外部资源
+            if (notInRuleList.Count > 0)
+            {
+                string massage = string.Empty;
+                for (int i = 0; i < notInRuleList.Count; i++)
+                {
+                    massage += "\n" + notInRuleList[i];
+                }
+                EditorUtility.ClearProgressBar();
+                throw new Exception($"资源不在打包规则,或者后缀不匹配！！！{massage}");
+            }
+
+            //排序
+            foreach (List<string> list in bundleDic.Values)
+            {
+                list.Sort();
+            }
+
+            return bundleDic;
+        }
     /// <summary>
     /// 获取指定路径的文件
     /// </summary>

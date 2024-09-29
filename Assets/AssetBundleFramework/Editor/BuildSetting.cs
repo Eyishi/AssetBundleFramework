@@ -155,5 +155,16 @@ namespace AssetBundleFramework.Editor
 
             return false;
         }
+        
+        /// <summary>
+        /// 获取BundleName
+        /// </summary>
+        /// <param name="assetUrl">资源路径</param>
+        /// <param name="resourceType">资源类型</param>
+        /// <returns>BundleName</returns>
+        public string GetBundleName(string assetUrl, EResourceType resourceType)
+        {
+            
+        }
     }
 }
