@@ -164,7 +164,7 @@ namespace AssetBundleFramework.Editor
         /// <returns>BundleName</returns>
         public string GetBundleName(string assetUrl, EResourceType resourceType)
         {
-            
+            return "";
         }
     }
 }
