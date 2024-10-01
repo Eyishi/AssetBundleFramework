@@ -155,6 +155,30 @@ namespace AssetBundleFramework.Editor
 
             return false;
         }
+        /// <summary>
+        /// 通过资源获取打包选项
+        /// </summary>
+        /// <param name="assetUrl">资源路径</param>
+        /// <returns>打包选项</returns>
+        public BuildItem GetBuildItem(string assetUrl)
+        {
+            BuildItem item = null;
+            for (int i = 0; i < items.Count; ++i)
+            {
+                BuildItem tempItem = items[i];
+                //前面是否匹配
+                if (assetUrl.StartsWith(tempItem.assetPath, StringComparison.InvariantCulture))
+                {
+                    //找到优先级最高的Rule,路径越长说明优先级越高
+                    if (item == null || item.assetPath.Length < tempItem.assetPath.Length)
+                    {
+                        item = tempItem;
+                    }
+                }
+            }
+
+            return item;
+        }
         
         /// <summary>
         /// 获取BundleName
@@ -164,7 +188,56 @@ namespace AssetBundleFramework.Editor
         /// <returns>BundleName</returns>
         public string GetBundleName(string assetUrl, EResourceType resourceType)
         {
-            return "";
+            BuildItem buildItem = GetBuildItem(assetUrl);
+
+            if (buildItem == null)
+            {
+                return null;
+            }
+
+            string name;
+
+            //依赖类型一定要匹配后缀
+            if (buildItem.resourceType == EResourceType.Dependency)
+            {
+                string extension = Path.GetExtension(assetUrl).ToLower();
+                bool exist = false;
+                for (int i = 0; i < buildItem.suffixes.Count; i++)
+                {
+                    if (buildItem.suffixes[i] == extension)
+                    {
+                        exist = true;
+                    }
+                }
+
+                if (!exist)
+                {
+                    return null;
+                }
+            }
+
+            switch (buildItem.bundleType)
+            {
+                case EBundleType.All:
+                    name = buildItem.assetPath;
+                    if (buildItem.assetPath[buildItem.assetPath.Length - 1] == '/')
+                        name = buildItem.assetPath.Substring(0, buildItem.assetPath.Length - 1);
+                    name = $"{name}{Builder.BUNDLE_SUFFIX}".ToLowerInvariant();
+                    break;
+                case EBundleType.Directory:
+                    name = $"{assetUrl.Substring(0, assetUrl.LastIndexOf('/'))}{Builder.BUNDLE_SUFFIX}"
+                        .ToLowerInvariant();
+                    break;
+                case EBundleType.File:
+                    name = $"{assetUrl}{Builder.BUNDLE_SUFFIX}".ToLowerInvariant();
+                    break;
+                default:
+                    throw new Exception($"无法获取{assetUrl}的BundleName");
+            }
+
+            buildItem.Count += 1;
+
+            return name;
         }
     }
 }

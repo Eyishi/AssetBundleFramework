@@ -100,8 +100,7 @@ public class Builder : MonoBehaviour
     /// <summary>
     /// 打包配置
     /// </summary>
-    public readonly static string BuildSettingPath = Path.GetFullPath("BuildSetting.xml").
-        Replace("\\", "/");
+    public readonly static string BuildSettingPath = "E:/project/unity/AssetBundleFramework/Assets/BuildSetting.xml";
     
     
     /// <summary>
@@ -221,7 +220,7 @@ public class Builder : MonoBehaviour
             buildPath += "/";
         }
         buildPath += $"{PLATFORM}/";
-
+        Debug.Log(buildPath);
         return buildSetting;
     }
     
