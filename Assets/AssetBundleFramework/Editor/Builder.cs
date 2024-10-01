@@ -22,7 +22,7 @@ public class Builder : MonoBehaviour
     private static readonly Vector2 ms_GenerateBuildInfoProgress = new Vector2(0.5f, 0.6f);
     private static readonly Vector2 ms_BuildBundleProgress = new Vector2(0.6f, 0.7f);
     private static readonly Vector2 ms_ClearBundleProgress = new Vector2(0.7f, 0.9f);
-    
+    private static readonly Vector2 ms_BuildManifestProgress = new Vector2(0.9f, 1f);
     /// <summary>
     /// 构建分析
     /// </summary>
@@ -58,6 +58,11 @@ public class Builder : MonoBehaviour
     /// 清理多余文件
     /// </summary>
     private static readonly Profiler ms_ClearBundleProfiler = ms_BuildProfiler.CreateChild(nameof(ClearAssetBundle));
+    
+    /// <summary>
+    /// manifest打包
+    /// </summary>
+    private static readonly Profiler ms_BuildManifestBundleProfiler = ms_BuildProfiler.CreateChild(nameof(BuildManifest));
 #if UNITY_IOS
         private const string PLATFORM = "iOS";
 #elif UNITY_ANDROID
@@ -105,6 +110,12 @@ public class Builder : MonoBehaviour
     public readonly static string TempPath = Path.GetFullPath(Path.Combine(Application.dataPath, "Temp")).
         Replace("\\", "/");
     
+    /// <summary>
+    /// 临时目录,临时文件的ab包都放在该文件夹，打包完成后会移除
+    /// </summary>
+    public readonly static string TempBuildPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../TempBuild"))
+        .Replace("\\", "/");
+
     /// <summary>
     /// 资源描述__文本
     /// </summary>
@@ -240,6 +251,11 @@ public class Builder : MonoBehaviour
         ms_ClearBundleProfiler.Start();
         ClearAssetBundle(buildPath, bundleDic);
         ms_ClearBundleProfiler.Stop();
+        
+        //把描述文件打包bundle
+        ms_BuildManifestBundleProfiler.Start();
+        BuildManifest();
+        ms_BuildManifestBundleProfiler.Stop();
         
         ms_BuildProfiler.Stop();
 
@@ -672,6 +688,53 @@ public class Builder : MonoBehaviour
             Parallel.ForEach(fileSet, ParallelOptions, File.Delete);
 
             EditorUtility.DisplayProgressBar($"{nameof(ClearAssetBundle)}", "清除多余的AssetBundle文件", max);
+        }
+        
+        /// <summary>
+        /// 把Resource.bytes、bundle.bytes、Dependency.bytes 打包assetbundle
+        /// </summary>
+        private static void BuildManifest()
+        {
+            float min = ms_BuildManifestProgress.x;
+            float max = ms_BuildManifestProgress.y;
+
+            EditorUtility.DisplayProgressBar($"{nameof(BuildManifest)}", "将Manifest打包成AssetBundle", min);
+
+            if (!Directory.Exists(TempBuildPath))
+                Directory.CreateDirectory(TempBuildPath);
+
+            string prefix = Application.dataPath.Replace("/Assets", "/").Replace("\\", "/");
+
+            AssetBundleBuild manifest = new AssetBundleBuild();
+            manifest.assetBundleName = $"{MANIFEST}{BUNDLE_SUFFIX}";
+            manifest.assetNames = new string[3]
+            {
+                ResourcePath_Binary.Replace(prefix,""),
+                BundlePath_Binary.Replace(prefix,""),
+                DependencyPath_Binary.Replace(prefix,""),
+            };
+
+            EditorUtility.DisplayProgressBar($"{nameof(BuildManifest)}", "将Manifest打包成AssetBundle", min + (max - min) * 0.5f);
+
+            AssetBundleManifest assetBundleManifest = BuildPipeline.BuildAssetBundles(TempBuildPath, 
+                new AssetBundleBuild[] { manifest }, BuildAssetBundleOptions, EditorUserBuildSettings.activeBuildTarget);
+
+            //把文件copy到build目录
+            if (assetBundleManifest)
+            {
+                string manifestFile = $"{TempBuildPath}/{MANIFEST}{BUNDLE_SUFFIX}";
+                string target = $"{buildPath}/{MANIFEST}{BUNDLE_SUFFIX}";
+                if (File.Exists(manifestFile))
+                {
+                    File.Copy(manifestFile, target);
+                }
+            }
+
+            //删除临时目录
+            if (Directory.Exists(TempBuildPath))
+                Directory.Delete(TempBuildPath, true);
+
+            EditorUtility.DisplayProgressBar($"{nameof(BuildManifest)}", "将Manifest打包成AssetBundle", max);
         }
         
         /// <summary>
