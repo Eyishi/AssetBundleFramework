@@ -18,6 +18,21 @@ public class Test_Callback : MonoBehaviour
         ResourceManager.instance.Initialize(GetPlatform(), GetFileUrl, false, 0);
     }
 
+    private void Initialize()
+    {
+        ResourceManager.instance.LoadWithCallback("Assets/AssetBundle/UI/UIRoot.prefab", true, uiRootResource =>
+        {
+            uiRootResource.Instantiate();
+
+            Transform uiParent = GameObject.Find("Canvas").transform;
+
+            ResourceManager.instance.LoadWithCallback("Assets/AssetBundle/UI/TestUI.prefab", true, testUIResource =>
+            {
+                testUIResource.Instantiate(uiParent, false);
+            });
+        });
+    }
+    
     // Update is called once per frame
     void Update()
     {
