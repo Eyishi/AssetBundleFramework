@@ -100,7 +100,8 @@ public class Builder : MonoBehaviour
     /// <summary>
     /// 打包配置
     /// </summary>
-    public readonly static string BuildSettingPath = "E:/project/unity/AssetBundleFramework/Assets/BuildSetting.xml";
+    public readonly static string BuildSettingPath = Path.GetFullPath("Assets/BuildSetting.xml").
+        Replace("\\", "/");
     
     
     /// <summary>
@@ -205,7 +206,6 @@ public class Builder : MonoBehaviour
     /// <param name="settingPath">打包配置路径</param>
     private static BuildSetting LoadSetting(string settingPath)
     {
-        Debug.Log(settingPath);
         buildSetting = XmlUtility.Read<BuildSetting>(settingPath);
         if (buildSetting == null)
         {
@@ -220,7 +220,7 @@ public class Builder : MonoBehaviour
             buildPath += "/";
         }
         buildPath += $"{PLATFORM}/";
-        Debug.Log(buildPath);
+        Debug.Log("buildPath:" + buildPath);
         return buildSetting;
     }
     
@@ -236,7 +236,7 @@ public class Builder : MonoBehaviour
         buildSetting = LoadSetting(BuildSettingPath);
         ms_LoadBuildSettingProfiler.Stop();
 
-        //搜集bundle信息
+        //搜集bundle信息 包名对应资源名
         ms_CollectProfiler.Start();
         Dictionary<string, List<string>> bundleDic = Collect();
         ms_CollectProfiler.Stop();
@@ -256,8 +256,9 @@ public class Builder : MonoBehaviour
         BuildManifest();
         ms_BuildManifestBundleProfiler.Stop();
         
+        EditorUtility.ClearProgressBar();
         ms_BuildProfiler.Stop();
-
+        
         Debug.Log($"打包完成{ms_BuildProfiler} ");
     }
     
