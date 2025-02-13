@@ -30,6 +30,26 @@ namespace AssetBundleFramework.Core.Bundle
             done = true;
         }
         
+        /// <summary>
+        /// 卸载bundle
+        /// </summary>
+        internal override void UnLoad()
+        {
+            if (assetBundle)
+                assetBundle.Unload(true);
+
+            assetBundle = null;
+            done = false;
+            reference = 0;
+            isStreamedSceneAssetBundle = false;
+        }
+        
+        /// <summary>
+        /// 异步加载资源
+        /// </summary>
+        /// <param name="name">资源名称</param>
+        /// <param name="type">资源Type</param>
+        /// <returns>AssetBundleRequest</returns>
         internal override AssetBundleRequest LoadAssetAsync(string name, Type type)
         {
             if (string.IsNullOrEmpty(name))

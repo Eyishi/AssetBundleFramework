@@ -1,5 +1,5 @@
 ﻿using System;
-
+using UnityEngine;
 using Object = UnityEngine.Object;
 namespace AssetBundleFramework.Core.Resource
 {
@@ -34,6 +34,20 @@ namespace AssetBundleFramework.Core.Resource
                 finishedCallback = null;
                 tempCallback.Invoke(this);
             }
+        }
+        /// <summary>
+        /// 卸载资源
+        /// </summary>
+        internal override void UnLoad()
+        {
+            if (asset != null && !(asset is GameObject))
+            {
+                Resources.UnloadAsset(base.asset);
+                asset = null;
+            }
+
+            asset = null;
+            finishedCallback = null;
         }
     }
 }

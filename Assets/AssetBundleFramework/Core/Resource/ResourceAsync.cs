@@ -30,6 +30,27 @@ namespace AssetBundleFramework.Core.Resource
 
             bundle = BundleManager.instance.LoadAsync(bundleUrl);
         }
+        
+        /// <summary>
+        /// 卸载资源
+        /// </summary>
+        internal override void UnLoad()
+        {
+            if (bundle == null)
+                throw new Exception($"{ nameof(Resource)}.{nameof(UnLoad)}() {nameof(bundle)} is null.");
+
+            if (base.asset != null && !(base.asset is GameObject))
+            {
+                Resources.UnloadAsset(base.asset);
+                asset = null;
+            }
+
+            m_AssetBundleRequest = null;
+            BundleManager.instance.UnLoad(bundle);
+            bundle = null;
+            finishedCallback = null;
+        }
+        
         /// <summary>
         /// 加载资源
         /// </summary>
@@ -58,6 +79,48 @@ namespace AssetBundleFramework.Core.Resource
                 finishedCallback = null;
                 tempCallback.Invoke(this);
             }
+        }
+        
+        /// <summary>
+        /// 异步加载资源
+        /// </summary>
+        internal override void LoadAssetAsync()
+        {
+            if (bundle == null)
+                throw new Exception($"{nameof(ResourceAsync)}.{nameof(LoadAssetAsync)}() {nameof(bundle)} is null.");
+
+            m_AssetBundleRequest = bundle.LoadAssetAsync(url, typeof(Object));
+        }
+        
+        public override bool Update()
+        {
+            if (done)
+                return true;
+
+            if (dependencies != null)
+            {
+                for (int i = 0; i < dependencies.Length; i++)
+                {
+                    if (!dependencies[i].done)
+                        return false;
+                }
+            }
+
+            if (!bundle.done)
+                return false;
+
+            if (m_AssetBundleRequest == null)
+            {
+                LoadAssetAsync();
+            }
+            
+            //正在加载
+            if (m_AssetBundleRequest != null && !m_AssetBundleRequest.isDone)
+                return false;
+
+            LoadAsset();
+
+            return true;
         }
     }
 }

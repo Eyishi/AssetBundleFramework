@@ -40,6 +40,11 @@ namespace AssetBundleFramework.Core.Bundle
         internal abstract void Load();
         
         /// <summary>
+        /// 卸载bundle
+        /// </summary>
+        internal abstract void UnLoad();
+        
+        /// <summary>
         /// 异步加载资源
         /// </summary>
         /// <param name="name">资源名称</param>
@@ -62,6 +67,20 @@ namespace AssetBundleFramework.Core.Bundle
         {
             //自己引用+1
             ++reference;
+        }
+        
+        /// <summary>
+        /// 减少引用
+        /// </summary>
+        internal void ReduceReference()
+        {
+            //自己引用-1
+            --reference;
+
+            if (reference < 0)
+            {
+                throw new Exception($"{GetType()}.{nameof(ReduceReference)}() less than 0,{nameof(url)}:{url}.");
+            }
         }
     }
 }

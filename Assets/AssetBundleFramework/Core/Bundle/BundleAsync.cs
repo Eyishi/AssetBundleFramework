@@ -37,6 +37,36 @@ namespace AssetBundleFramework.Core.Bundle
         }
         
         /// <summary>
+        /// 卸载bundle
+        /// </summary>
+        internal override void UnLoad()
+        {
+            if (assetBundle)
+            {
+                assetBundle.Unload(true);
+            }
+            else
+            {
+                //正在异步加载的资源也要切到主线程进行释放
+                if (m_AssetBundleCreateRequest != null)
+                {
+                    assetBundle = m_AssetBundleCreateRequest.assetBundle;
+                }
+
+                if (assetBundle)
+                {
+                    assetBundle.Unload(true);
+                }
+            }
+
+            m_AssetBundleCreateRequest = null;
+            done = false;
+            reference = 0;
+            assetBundle = null;
+            isStreamedSceneAssetBundle = false;
+        }
+        
+        /// <summary>
         /// 加载资源
         /// </summary>
         /// <param name="name">资源名称</param>

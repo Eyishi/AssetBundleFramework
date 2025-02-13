@@ -37,6 +37,9 @@ namespace AssetBundleFramework.Core.Resource
         /// </summary>
         internal Action<AResource> finishedCallback { get; set; }
         
+        //是否加载完成
+        internal bool done { get; set; }
+
         /// <summary>
         /// 增加引用
         /// </summary>
@@ -44,10 +47,7 @@ namespace AssetBundleFramework.Core.Resource
         {
             ++reference;
         }
-
-        //是否加载完成
-        internal bool done { get; set; }
-
+        
         /// <summary>
         /// 减少引用
         /// </summary>
@@ -65,6 +65,11 @@ namespace AssetBundleFramework.Core.Resource
         /// 加载资源
         /// </summary>
         internal abstract void Load();
+        
+        /// <summary>
+        /// 卸载资源
+        /// </summary>
+        internal abstract void UnLoad();
         
         /// <summary>
         /// 加载资源
