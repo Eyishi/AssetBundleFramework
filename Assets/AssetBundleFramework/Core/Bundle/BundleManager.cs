@@ -70,6 +70,15 @@ namespace AssetBundleFramework.Core.Bundle
         }
         
         /// <summary>
+        /// 异步加载bundle
+        /// </summary>
+        /// <param name="url">asset路径</param>
+        internal ABundle LoadAsync(string url)
+        {
+            return LoadInternal(url, true);
+        }
+        
+        /// <summary>
         /// 内部加载bundle
         /// </summary>
         /// <param name="url">asset路径</param>

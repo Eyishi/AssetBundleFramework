@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using UnityEngine;
-
+using Object = UnityEngine.Object;
 namespace AssetBundleFramework.Core.Bundle
 {
     /// <summary>
@@ -35,10 +35,76 @@ namespace AssetBundleFramework.Core.Bundle
 
             m_AssetBundleCreateRequest = AssetBundle.LoadFromFileAsync(file, 0, BundleManager.instance.offset);
         }
+        
+        /// <summary>
+        /// 加载资源
+        /// </summary>
+        /// <param name="name">资源名称</param>
+        /// <param name="type">资源Type</param>
+        /// <returns>指定名字的资源</returns>
+        internal override Object LoadAsset(string name, Type type)
+        {
+            if (string.IsNullOrEmpty(name))
+                throw new ArgumentException($"{nameof(BundleAsync)}.{nameof(LoadAsset)}() name is null.");
 
+            if (m_AssetBundleCreateRequest == null)
+                throw new NullReferenceException($"{nameof(BundleAsync)}.{nameof(LoadAsset)}() m_AssetBundleCreateRequest is null.");
+
+            if (assetBundle == null)
+                assetBundle = m_AssetBundleCreateRequest.assetBundle;
+
+            return assetBundle.LoadAsset(name, type);
+        }
+        /// <summary>
+        /// 异步加载资源
+        /// </summary>
+        /// <param name="name">资源名称</param>
+        /// <param name="type">资源Type</param>
+        /// <returns>AssetBundleRequest</returns>
+        internal override AssetBundleRequest LoadAssetAsync(string name, Type type)
+        {
+            if (string.IsNullOrEmpty(name))
+                throw new ArgumentException($"{nameof(BundleAsync)}.{nameof(LoadAssetAsync)}() name is null.");
+
+            if (m_AssetBundleCreateRequest == null)
+                throw new NullReferenceException($"{nameof(BundleAsync)}.{nameof(LoadAssetAsync)}() m_AssetBundleCreateRequest is null.");
+
+            if (assetBundle == null)
+                assetBundle = m_AssetBundleCreateRequest.assetBundle;
+
+            return assetBundle.LoadAssetAsync(name, type);
+        }
+        
         internal override bool Update()
         {
-            throw new System.NotImplementedException();
+            if (done)
+                return true;
+
+
+            if (dependencies != null)
+            {
+                for (int i = 0; i < dependencies.Length; i++)
+                {
+                    if (!dependencies[i].done)
+                        return false;
+                }
+            }
+
+            if (!m_AssetBundleCreateRequest.isDone)
+                return false;
+
+            done = true;
+
+            assetBundle = m_AssetBundleCreateRequest.assetBundle;
+            
+            isStreamedSceneAssetBundle = assetBundle.isStreamedSceneAssetBundle;
+
+            if (reference == 0)
+            {
+                UnLoad();
+            }
+
+            return true;
         }
     }
 }
