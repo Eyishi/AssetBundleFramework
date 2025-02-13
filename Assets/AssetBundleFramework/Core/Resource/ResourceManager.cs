@@ -142,6 +142,16 @@ namespace AssetBundleFramework.Core.Resource
             }
             #endregion
         }
+        /// <summary>
+        /// 加载资源
+        /// </summary>
+        /// <param name="url">资源Url</param>
+        /// <param name="async">是否异步</param>
+        /// <returns> Task<AResource> </returns>
+        public IResource Load(string url, bool async)
+        {
+            return LoadInternal(url, async, false);
+        }
         
         /// <summary>
         /// 加载资源

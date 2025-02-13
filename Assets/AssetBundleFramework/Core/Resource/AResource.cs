@@ -103,7 +103,7 @@ namespace AssetBundleFramework.Core.Resource
         {
             return asset;
         }
-        // public abstract T GetAsset<T>() where T : Object;
+        public abstract T GetAsset<T>() where T : Object;
 
         public GameObject Instantiate()
         {

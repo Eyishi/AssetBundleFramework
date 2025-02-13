@@ -1,7 +1,7 @@
 ﻿using System;
 using AssetBundleFramework.Core.Bundle;
 using UnityEngine;
-using Object = System.Object;
+using Object = UnityEngine.Object;
 
 namespace AssetBundleFramework.Core.Resource
 {
@@ -71,6 +71,33 @@ namespace AssetBundleFramework.Core.Resource
                 Action<AResource> tempCallback = finishedCallback;
                 finishedCallback = null;
                 tempCallback.Invoke(this);
+            }
+        }
+        
+        public override T GetAsset<T>()
+        {
+            Object tempAsset = asset;
+            Type type = typeof(T);
+            if (type == typeof(Sprite))
+            {
+                if (asset is Sprite)
+                {
+                    return tempAsset as T;
+                }
+                else
+                {
+                    if (tempAsset && !(tempAsset is GameObject))
+                    {
+                        Resources.UnloadAsset(tempAsset);
+                    }
+
+                    asset = bundle.LoadAsset(url, type);
+                    return asset as T;
+                }
+            }
+            else
+            {
+                return tempAsset as T;
             }
         }
     }

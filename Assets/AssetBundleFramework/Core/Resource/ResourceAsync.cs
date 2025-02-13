@@ -92,6 +92,33 @@ namespace AssetBundleFramework.Core.Resource
             m_AssetBundleRequest = bundle.LoadAssetAsync(url, typeof(Object));
         }
         
+        public override T GetAsset<T>()
+        {
+            Object tempAsset = asset;
+            Type type = typeof(T);
+            if (type == typeof(Sprite))
+            {
+                if (asset is Sprite)
+                {
+                    return tempAsset as T;
+                }
+                else
+                {
+                    if (tempAsset && !(tempAsset is GameObject))
+                    {
+                        Resources.UnloadAsset(tempAsset);
+                    }
+
+                    asset = bundle.LoadAsset(url, type);
+                    return asset as T;
+                }
+            }
+            else
+            {
+                return tempAsset as T;
+            }
+        }
+        
         public override bool Update()
         {
             if (done)
