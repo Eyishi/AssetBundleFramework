@@ -1,4 +1,5 @@
 ﻿using System;
+using AssetBundleFramework.Core.Bundle;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -17,6 +18,11 @@ namespace AssetBundleFramework.Core.Resource
         public virtual Object asset { get; protected set; }
         
         /// <summary>
+        /// 引用的Bundle
+        /// </summary>
+        internal ABundle bundle { get; set; }
+        
+        /// <summary>
         /// 依赖资源
         /// </summary>
         internal AResource[] dependencies { get; set; }
@@ -26,6 +32,10 @@ namespace AssetBundleFramework.Core.Resource
         /// </summary>
         internal int reference { get; set; }
         
+        /// <summary>
+        /// 加载完成回调
+        /// </summary>
+        internal Action<AResource> finishedCallback { get; set; }
         
         /// <summary>
         /// 增加引用
@@ -51,11 +61,43 @@ namespace AssetBundleFramework.Core.Resource
             }
         }
         
+        /// <summary>
+        /// 加载资源
+        /// </summary>
+        internal abstract void Load();
+        
+        /// <summary>
+        /// 加载资源
+        /// </summary>
+        internal abstract void LoadAsset();
+        
+        /// <summary>
+        /// 刷新异步资源（当同步资源的依赖包含异步时，需要立即刷新返回）
+        /// </summary>
+        internal void FreshAsyncAsset()
+        {
+            if (done)
+                return;
+
+            if (dependencies != null)
+            {
+                for (int i = 0; i < dependencies.Length; i++)
+                {
+                    AResource resource = dependencies[i];
+                    resource.FreshAsyncAsset();
+                }
+            }
+
+            if (this is AResourceAsync)
+            {
+                LoadAsset();
+            }
+        }
+        
         public Object GetAsset()
         {
             return asset;
         }
-
         // public abstract T GetAsset<T>() where T : Object;
 
         public GameObject Instantiate()
@@ -99,10 +141,6 @@ namespace AssetBundleFramework.Core.Resource
 
             return Object.Instantiate(obj, parent, instantiateInWorldSpace) as GameObject;
         }
-
-        /// <summary>
-        /// 加载资源
-        /// </summary>
-        internal abstract void Load();
+        
     }
 }
