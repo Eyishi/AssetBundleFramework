@@ -1,49 +1,33 @@
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.IO;
 using AssetBundleFramework.Core.Resource;
 using UnityEngine;
-
-public class Test_Callback : MonoBehaviour
+public class Test_Coroutine : MonoBehaviour
 {
     private string PrefixPath { get; set; }
     private string Platform { get; set; }
-    
-    // Start is called before the first frame update
-    void Start()
+
+    private void Start()
     {
         Platform = GetPlatform();
         PrefixPath = Path.GetFullPath(Path.Combine(Application.dataPath, "../AssetBundle")).Replace("\\", "/");
         PrefixPath += $"/{Platform}";
         ResourceManager.instance.Initialize(GetPlatform(), GetFileUrl, false, 0);
-        
-        Initialize();
-    }
 
-    private void Initialize()
+        StartCoroutine(Initialize());
+    }
+    private IEnumerator Initialize()
     {
-        ResourceManager.instance.LoadWithCallback("Assets/AssetBundle/UI/UIRoot.prefab", true, uiRootResource =>
-        {
-            uiRootResource.Instantiate();
+        IResource uiResource = ResourceManager.instance.Load("Assets/AssetBundle/UI/UIRoot.prefab", true);
+        yield return uiResource;
+        uiResource.Instantiate();
+        Transform uiParent = GameObject.Find("Canvas").transform;
 
-            Transform uiParent = GameObject.Find("Canvas").transform;
-
-            ResourceManager.instance.LoadWithCallback("Assets/AssetBundle/UI/TestUI.prefab", false, testUIResource =>
-            {
-                testUIResource.Instantiate(uiParent, false);
-            });
-        });
-    }
-    
-    private void Update()
-    {
-        ResourceManager.instance.Update();
+        IResource testResource = ResourceManager.instance.Load("Assets/AssetBundle/UI/TestUI.prefab", true);
+        yield return testResource;
+        testResource.Instantiate(uiParent, false);
     }
 
-    private void LateUpdate()
-    {
-        ResourceManager.instance.LateUpdate();
-    }
     private string GetPlatform()
     {
         switch (Application.platform)
@@ -59,8 +43,19 @@ public class Test_Callback : MonoBehaviour
                 throw new System.Exception($"未支持的平台:{Application.platform}");
         }
     }
+
     private string GetFileUrl(string assetUrl)
     {
         return $"{PrefixPath}/{assetUrl}";
+    }
+
+    void Update()
+    {
+        ResourceManager.instance.Update();
+    }
+
+    private void LateUpdate()
+    {
+        ResourceManager.instance.LateUpdate();
     }
 }
